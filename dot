@@ -1,0 +1,241 @@
+# -*- sh -*-
+
+# 1. Make a place to write the config files
+# 2. Write the configs to thse files.
+# 3. Configure emacs with a call to emacs -script
+# 4. Run a shell containing magic commands to run using those configs.
+
+
+
+Dot=/tmp/$USER/dot
+mkdir -p $Dot
+
+
+
+#########################################################
+cat <<'EOF' > $Dot/dotbashrc
+# -*- sh -*- 
+#### begin config
+
+What="SMORE"
+When="2016"
+Who="Tim Menzies, George Mathew"
+How="MIT (v2) licence"
+
+Emacs="/Applications/Emacs.app/Contents/MacOS/Emacs"
+
+GitUserName="Tim Menzies"
+GitUserEmail="tim@menzies.us"
+GitCoreEditor="`which nano`"
+
+####
+
+What=${What:-"DOT"}
+When=${When:-1984}
+Who=${Who:-"Alan Turing"}
+How=${How:-"MIT (v2) license"}
+Emacs=${Emacs:-"/Applications/Emacs.app/Contents/MacOS/Emacs"}
+
+###
+
+echo 
+echo "$What v1.0 (c) $When ${Who}, $How"
+echo
+
+Edot="$Dot/dotemacs"
+
+e() { "$Emacs" -q -l "$Edot" $* &  
+}
+
+em() { emacs -q -l "$Edot" $*   
+     }
+
+oks() {
+    for i in *ok.py; do
+        python $i
+    done
+}
+
+ok() {
+    f=${1}ok.py
+    echo ";;;;;;;;;; ;;;;;;;;;; ;;;;;;;;;; $f" 
+    time python -B $f
+}
+
+reload() { . "$Dot"/dotbashrc ; }
+
+Seed=0
+
+here() { cd $1; basename "$PWD"; }
+
+PROMPT_COMMAND='echo  -ne "${What}:\033]0; $(here ..)/$(here .)\007"
+PS1=" $(here ..)/$(here .) \!> "'
+
+alias ls='ls -G'                 ## short format
+alias ll='ls -la'                ## long format
+alias l.='ls -d .* --color=auto' ## Show hidden files
+alias cd..='cd ..' ## get rid of a common 'command not found' error
+alias ..='cd ..' # quick change dir command
+alias ...='cd ../../../'
+alias ....='cd ../../../../'
+alias .....='cd ../../../../'
+alias .3='cd ../../../'
+alias .4='cd ../../../../'
+alias .5='cd ../../../../..'
+
+gitpush() {
+    ready
+    git status
+    git commit -am "saving"
+    git push origin master
+}
+gitpull() {
+    ready
+    git pull origin master
+}
+ready() {
+    gitting
+}
+gitting() {
+    if [ -n "$GitUserName" ]; then
+        git config --global user.name "$GitUserName"
+    fi
+    if [ -n "$GitUserEmail" ]; then
+      git config --global user.email $GitUserEmail
+    fi
+    if [ -n "GitCoreEditor" ]; then
+      git config --global core.editor $GitCoreEditor
+    fi  
+    git config --global credential.helper cache
+    git config credential.helper 'cache --timeout=3600'
+}
+update() {
+  echo "Are sure you want to zap dot?"
+  echo "Return to continue, Control-c to cancel... "
+  read x
+  echo "Updating dot ... "
+  svn -q export --force https://github.com/s-more/src/trunk/dot
+  echo ""
+  echo "You should run 'reload' now."
+}
+EOF
+
+#########################################################
+cat<<'EOF' > $Dot/install.el
+; -*- lisp -*-
+  (require 'package)
+  (setq package-archives 
+     '(("gnu" . "http://elpa.gnu.org/packages/")
+       ("marmalade" . "https://marmalade-repo.org/packages/")
+       ("melpa" . "http://melpa.org/packages/")))
+
+  (package-initialize)
+  (if (boundp 'my-wants)
+      (mapcar (lambda (package)
+          (unless (package-installed-p package)
+            (package-install package)))
+         '( zenburn-theme
+            diff-hl
+           ;async
+            helm
+            neotree
+            deft
+            powerline
+            markdown-mode
+            color-theme)))
+EOF
+
+#########################################################
+cat<<'EOF' > $Dot/dotemacs
+; -*- lisp -*-
+  (setq tags-file-name "TAGS")
+  (tool-bar-mode -1)
+  (setq ispell-program-name 
+        (if 
+            (boundp 'my-spell) 
+            my-spell 
+          "/usr/local/bin/ispell"))
+  (setq package-archives
+        '(("gnu" . "http://elpa.gnu.org/packages/")
+          ("marmalade" . "https://marmalade-repo.org/packages/")
+          ("melpa" . "http://melpa.org/packages/")))
+  (when (>= emacs-major-version 24)
+    (require 'package)
+    (add-to-list
+     'package-archives
+     '("melpa" . "http://melpa.org/packages/")
+     t)
+    (package-initialize))
+
+  ;(require 'helm-config)
+  (require 'ido)
+  (require 'neotree)
+  (require 'recentf)
+  (require 'imenu)
+  (require 'powerline)
+
+  (add-hook 'dired-mode-hook 'diff-hl-dired-mode)
+  (powerline-default-theme)
+  (global-set-key (kbd "C-.") 'imenu-anywhere)
+  (ido-mode t)
+  (global-set-key [f9] 'neotree-toggle)
+  (neotree-toggle)
+  (recentf-mode 1)
+  (setq recentf-max-menu-items 25)
+  (global-set-key "\C-x\ \C-r" 'recentf-open-files)
+  (progn
+    (setq require-final-newline    t) 
+    (setq next-line-add-newlines nil) 
+    (setq inhibit-startup-message  t)
+    (setq-default fill-column     80)
+    (setq column-number-mode       t)
+    (setq make-backup-files      nil) 
+    (transient-mark-mode           t)
+    (global-font-lock-mode         t)
+    (global-hl-line-mode           0)  
+    (xterm-mouse-mode              t)
+    (setq scroll-step              1)
+    (show-paren-mode               t))
+
+  (setq display-time-day-and-date t) (display-time) 
+  (setq-default indent-tabs-mode nil) 
+
+  (setq frame-title-format
+        '(:eval
+          (if buffer-file-name
+              (replace-regexp-in-string
+               "\\\\" "/"
+               (replace-regexp-in-string
+                (regexp-quote (getenv "HOME")) "~"
+                (convert-standard-filename buffer-file-name)))
+            (buffer-name))))
+
+  (add-hook 'python-mode-hook
+            (lambda ()
+              (setq indent-tabs-mode nil
+                    tab-width 2)
+              (setq python-indent 2)))
+
+  (add-hook 'python-mode-hook
+            (lambda()
+              (local-set-key (kbd "C-c <right>") 'hs-show-block)
+              (local-set-key (kbd "C-c <left>")  'hs-hide-block)
+              (local-set-key (kbd "C-c <up>")    'hs-hide-all)
+              (local-set-key (kbd "C-c <down>")  'hs-show-all)
+              (hs-minor-mode t)))
+
+  (eval-after-load "color-theme"
+    '(progn
+       (color-theme-initialize)
+       (color-theme-charcoal-black)))
+
+  (require 'color-theme)
+EOF
+
+#########################################################
+
+# call the emacs package manager to load any missing packages
+emacs -script $Dot/install.el
+
+# call a shell with functions that call things with the above config
+Dot=$Dot  bash --init-file $Dot/dotbashrc  -i
