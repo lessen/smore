@@ -21,14 +21,4 @@ class Sample(o):
       i.some += [x]
     elif r() <= now/i.n:
       i.some[ int(r() * now) ]= x
-  def midZsd(i):
-    n   = len(i.some)
-    lo  = int(0.05*n)
-    hi  = int(0.95*n)
-    lst = sorted(i.some)[lo:hi]
-    mid = lst[ len(lst) // 2 ]
-    min = tmp[ 0]
-    max = tmp[-1]
-    zsd = Num([(x - min)/(max - min + 1e-32)
-               for x in lst]).sd()
-    return mid, zsd
+ 
