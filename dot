@@ -40,7 +40,6 @@ Emacs=${Emacs:-"/Applications/Emacs.app/Contents/MacOS/Emacs"}
 
 echo 
 echo "$What v1.0 (c) $When ${Who}, $How"
-echo
 
 Edot="$Dot/dotemacs"
 
