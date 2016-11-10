@@ -50,14 +50,14 @@ e() { "$Emacs" -q -l "$Edot" $* &
 em() { emacs -q -l "$Edot" $*   
      }
 
-oks() {
-    for i in *ok.py; do
+egs() {
+    for i in *eg.py; do
         python $i
     done
 }
 
-ok() {
-    f=${1}ok.py
+eg() {
+    f=${1}eg.py
     echo ";;;;;;;;;; ;;;;;;;;;; ;;;;;;;;;; $f" 
     time python -B $f
 }
@@ -114,7 +114,7 @@ update() {
   echo "Return to continue, Control-c to cancel... "
   read x
   echo "Updating dot ... "
-  svn -q export --force https://github.com/s-more/src/trunk/dot
+  svn -q export --force https://github.com/lessen/dot/trunk/dot
   echo ""
   echo "You should run 'reload' now."
 }

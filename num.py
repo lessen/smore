@@ -6,7 +6,7 @@ from config import *
 
 class Num(o):
   HEDGES = THE.num.hedges # 0.38
-  CONF= THE.num.conf # 0.95
+  CONF   = THE.num.conf # 0.95
   def __init__(i,inits=[]):
     has(i, mu=0, n=0, m2=0, hi=-1e32,lo=1e32)
     map(i.add, inits)

@@ -6,13 +6,13 @@ from config import *
 
 PASS, FAIL = 0,0
 
-def oks():
+def egs():
   "Report status of all tests."
   p,f = PASS,FAIL
   print("\n# PASS= %s FAIL= %s %%PASS = %s%%"  % (
     p,f, int(round(p*100/(p+f+0.001)))))
 
-def ok(f):
+def eg(f):
   "Run one test."
   global PASS, FAIL
   if THE.all.brave: return f
