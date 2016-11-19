@@ -26,8 +26,7 @@ class Num:
       y = 1 if i.norm(x) < 0.5 else 0
     else:
       x,y = i.norm(x), i.norm(y)
-    return (x-y)**2, 1
-  
+    return (x-y)**2, 1  
   def __repr__(i):
     return 'Num(%s,%s)' % (i.name,i.col)
   
@@ -58,21 +57,20 @@ class Table:
                     syms= ("=", Sym))
   
   def __init__(i,file):
-    i.rows,i.cols = [],{}
+    i.rows,i.cols,i.name = [],{},[]
     width = None
     for j,line in enumerate(i.lines(file)):
-      width = width or len(line)
-      assert width == len(line), "wanted %s cells" % width
-      if j > 0:
-        i.rows += [ i.compiles(line) ]
-      else:
+      if j == 0:
+        width = len(line)
         i.header(line)
+      else:
+        assert width == len(line), "wanted %s cells" % width
+        i.rows += [ i.compile(line) ]
         
-  def compiles(i,line):
-    for log in i.cols["all"]:
-      x = log.compile( line[log.col] )
-      log.add(x)
-      line[log.col] = x
+  def compile(i,line):
+    for x in i.cols["all"]:
+      y = line[x.col] = x.compile( line[x.col] )
+      x.add(y)
     return line
   
   def header(i,line):
@@ -102,18 +100,19 @@ class Table:
               
   def dist(i, j,k):
     ds,ns = 0,1e-32
-    for log in i.cols["all"]:
-      d,n  = log.dist(j[log.col], k[log.col], Table.missing)
-      ds  += d
-      ns  += n
+    for x in ["nums","syms"]:
+      for y in i.cols[x]:
+        d,n  = y.dist(j[y.col], k[y.col], Table.missing)
+        ds  += d
+        ns  += n
     return ds**0.5 / ns**0.5
       
 def dists(t):
   ds = {}
   for a,row1 in enumerate(t.rows):
+    ds[a] = []
+  for a,row1 in enumerate(t.rows):
     for b,row2 in enumerate(t.rows):
-      ds[a] = ds.get(a,[])
-      ds[b] = ds.get(b,[])  
       if a > b:
         d      = t.dist(row1,row2)
         ds[a] += [(d, a, b)]
@@ -125,5 +124,5 @@ def dists(t):
 if __name__ == '__main__':
   f= "data/nasa93.csv"
   t = Table(f)
-  print(t.cols["nums"],len(t.rows))
+  print(t.cols["nums"],t.rows[0])
   print(dists(t)[0][:5])
