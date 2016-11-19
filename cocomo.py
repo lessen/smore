@@ -108,23 +108,22 @@ class Table:
       ns  += n
     return ds**0.5 / ns**0.5
       
-  def dists(i):
-    ds = {}
-    for a,row1 in enumerate(i.rows):
-      for b,row2 in enumerate(i.rows):
-        ds[a] = ds.get(a,[])
-        ds[b] = ds.get(b,[])  
-        if a > b:
-          d      = i.dist(row1,row2)
-          ds[a] += [(d, a, b)]
-          ds[b] += [(d, b, a)]
-    for a,tuples in ds.items():
-      ds[a] = sorted(tuples)
-    i.ds = ds
-    return ds
+def dists(t):
+  ds = {}
+  for a,row1 in enumerate(t.rows):
+    for b,row2 in enumerate(t.rows):
+      ds[a] = ds.get(a,[])
+      ds[b] = ds.get(b,[])  
+      if a > b:
+        d      = t.dist(row1,row2)
+        ds[a] += [(d, a, b)]
+        ds[b] += [(d, b, a)]
+  for a,tuples in ds.items():
+    ds[a] = sorted(tuples)
+  return ds
       
 if __name__ == '__main__':
   f= "data/nasa93.csv"
   t = Table(f)
   print(t.cols["nums"],len(t.rows))
-  print(t.dists()[0][:5])
+  print(dists(t)[0][:5])
