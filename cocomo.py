@@ -102,9 +102,9 @@ class Table:
             if len(row)> 0:
               yield row
               
-  def dist(i, j,k):
+  def dist(i, j,k, what=["nums","syms"]):
     ds,ns = 0,1e-32
-    for x in ["nums","syms"]:
+    for x in what:
       for y in i.cols[x]:
         d,n  = y.dist(j[y.col], k[y.col], Table.missing)
         ds  += d
