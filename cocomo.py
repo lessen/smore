@@ -55,11 +55,15 @@ class Table:
                     more= (">", Num),
                     nums= ("$", Num),
                     syms= ("=", Sym))
-  
-  def __init__(i,file):
-    i.rows,i.cols,i.name = [],{},[]
+
+  def __init__(i,file=None):
+    i.rows,i.cols,i.name,i.all = [],{},[],[]
+    if file:
+      return i.create(i.lines(file))
+
+  def create(i,src):
     width = None
-    for j,line in enumerate(i.lines(file)):
+    for j,line in enumerate(src):
       if j == 0:
         width = len(line)
         i.header(line)
@@ -68,7 +72,7 @@ class Table:
         i.rows += [ i.compile(line) ]
         
   def compile(i,line):
-    for x in i.cols["all"]:
+    for x in i.all:
       y = line[x.col] = x.compile( line[x.col] )
       x.add(y)
     return line
@@ -80,7 +84,7 @@ class Table:
           if cell[0] == char:
             new = what(cell,col)
             i.cols[ key ] = i.cols.get( key, []) + [new]
-            i.cols["all"] = i.cols.get("all",[]) + [new]
+            i.all += [new]
             break
           
   def lines(i,file):
@@ -106,23 +110,15 @@ class Table:
         ds  += d
         ns  += n
     return ds**0.5 / ns**0.5
-      
-def dists(t):
-  ds = {}
-  for a,row1 in enumerate(t.rows):
-    ds[a] = []
-  for a,row1 in enumerate(t.rows):
-    for b,row2 in enumerate(t.rows):
-      if a > b:
-        d      = t.dist(row1,row2)
-        ds[a] += [(d, a, b)]
-        ds[b] += [(d, b, a)]
-  for a,tuples in ds.items():
-    ds[a] = sorted(tuples)
-  return ds
+
+def nearest(row1, t, k=3):
+  return sorted([(t.dist(row1,row2), row2)
+                 for row2 in t.rows ])[1:k+1]
       
 if __name__ == '__main__':
   f= "data/nasa93.csv"
-  t = Table(f)
+  t = Table(file=f)
   print(t.cols["nums"],t.rows[0])
-  print(dists(t)[0][:5])
+  print(t.rows[0])
+  for row in nearest(t.rows[0], t, k=3):
+    print(row)
