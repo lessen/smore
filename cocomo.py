@@ -57,7 +57,7 @@ class Table:
                     syms= ("=", Sym))
 
   def __init__(i,file=None):
-    i.rows,i.cols,i.name,i.all = [],{},[],[]
+    i.rows,i.cols,i.names,i.all = [],{},[],[]
     if file:
       return i.create(i.lines(file))
 
@@ -66,6 +66,7 @@ class Table:
     for j,line in enumerate(src):
       if j == 0:
         width = len(line)
+        i.names = line
         i.header(line)
       else:
         assert width == len(line), "wanted %s cells" % width
@@ -111,14 +112,47 @@ class Table:
         ns  += n
     return ds**0.5 / ns**0.5
 
-def nearest(row1, t, k=3):
-  return sorted([(t.dist(row1,row2), row2)
-                 for row2 in t.rows ])[1:k+1]
+def median(lst):
+  lst = sorted(lst)
+  l   = len(lst)
+  m   = l // 2
+  print(m,m+1)
+  return lst[m] if l % 2 else (lst[m] + lst[m+1])/2
+
+def percentiles(lst,p=5):
+  all = sorted(lst)
+  n   = len(lst)//p
+  tmp = all[n::n]
+  print(n,tmp[-1])
+  print(tmp)
+
+def second(lst): return lst[1]
+
+def sa(wantgot):
+  sampled = median( [got for _,got in wantgot] )
+  n       = len(wantgot)
+  denom   = sum([ abs(got - sampled) for    _,got in wantgot ]) / n
+  nom     = sum([ abs(got - want)    for want,got in wantgot ]) / n
+  return (nom / denom)
+    
+def neighbors(row1, t):
+  return map(second,
+             sorted(
+               [(t.dist(row1,row2), row2)
+                for row2 in t.rows ]))
+
+def knn(row,t,k=5, goal=-1, combine = median):
+  return combine( [ x[goal]
+                    for x in
+                    neighbors(row,t)[1:k+1] ] )
       
 if __name__ == '__main__':
-  f= "data/nasa93.csv"
-  t = Table(file=f)
-  print(t.cols["nums"],t.rows[0])
-  print(t.rows[0])
-  for row in nearest(t.rows[0], t, k=3):
-    print(row)
+  f       = "data/nasa93.csv"
+  t       = Table(file=f)
+  for k in [1,2,3,5]:
+    wantgot = []
+    for row in t.rows:
+      want     = row[-1]
+      got      = knn(row, t, k=k)
+      wantgot += [(want,got)]
+    print(k,sa(wantgot))
