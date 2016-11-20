@@ -115,18 +115,19 @@ class Table:
 def median(lst):
   lst = sorted(lst)
   l   = len(lst)
+  if l < 3:
+    return (lst[0] + lst[-1])/2
   m   = l // 2
-  print(m,m+1)
   return lst[m] if l % 2 else (lst[m] + lst[m+1])/2
 
-def percentiles(lst,p=5):
+def percentiles(lst,p=4):
   all = sorted(lst)
   n   = len(lst)//p
-  tmp = all[n::n]
-  print(n,tmp[-1])
-  print(tmp)
+  return all[::n], all[3*n] - all[n]
 
 def second(lst): return lst[1]
+
+def p(x): return int(p*100)
 
 def sa(wantgot):
   sampled = median( [got for _,got in wantgot] )
@@ -142,17 +143,23 @@ def neighbors(row1, t):
                 for row2 in t.rows ]))
 
 def knn(row,t,k=5, goal=-1, combine = median):
-  return combine( [ x[goal]
-                    for x in
-                    neighbors(row,t)[1:k+1] ] )
+  dists = neighbors(row,t)
+  nears = dists[1:k+1]
+  gots  = [x[goal] for x in nears]
+  got   = combine(gots)
+  return got
       
 if __name__ == '__main__':
   f       = "data/nasa93.csv"
   t       = Table(file=f)
-  for k in [1,2,3,5]:
+  for k in [1,2,3,4,5]:
+    mres = []
     wantgot = []
     for row in t.rows:
       want     = row[-1]
       got      = knn(row, t, k=k)
+      mres += [abs(want-got)/want]
       wantgot += [(want,got)]
-    print(k,sa(wantgot))
+    mres = sorted(mres)
+    print(k, percentiles(mres))
+    #print(k, sa(wantgot), sum(mres)/len(t.rows))
