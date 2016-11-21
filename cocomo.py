@@ -58,6 +58,8 @@ class Table:
 
   def __init__(i,file=None):
     i.rows,i.cols,i.names,i.all = [],{},[],[]
+    for key in Table.cols.keys():
+      i.cols[key] = []
     if file:
       return i.create(i.lines(file))
 
@@ -188,6 +190,11 @@ def COCOMO2(project,  a = 2.94, b = 0.91,
 
 if __name__ == '__main__':
   f = "data/nasa93_2000.csv"
+  g = -1
+  if len(sys.argv) > 1:
+    f = sys.argv[1]
+  if len(sys.argv) > 2:
+    g = int(sys.argv[2])
   t = Table(file=f)
   p = lambda x:  int(x*100)
   for k in [1,3,5,7]:
@@ -196,9 +203,9 @@ if __name__ == '__main__':
     wantgot1 = []
     wantgot2 = []
     for row in t.rows:
-      want     = row[-8]
-      got1      = knn(row, t, goal=-8,k=k)
-      got2      = median(row[-8] for row in t.rows)
+      want     = row[g]
+      got1      = knn(row, t, goal=g,k=k)
+      got2      = median(row[g] for row in t.rows)
       mres1 += [abs(want-got1)/want]
       wantgot1 += [(want,got1)]
       mres2 += [abs(want-got2)/want]
