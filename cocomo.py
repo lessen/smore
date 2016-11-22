@@ -57,7 +57,8 @@ class Table:
                     syms= ("=", Sym))
 
   def __init__(i,file=None):
-    i.rows,i.cols,i.names,i.all = [],{},[],[]
+    i.rows,i.cols,i.all = [],{},[]
+    i.col2cell, i.cell2col = {}, {}
     for key in Table.cols.keys():
       i.cols[key] = []
     if file:
@@ -68,7 +69,6 @@ class Table:
     for j,line in enumerate(src):
       if j == 0:
         width = len(line)
-        i.names = line
         i.header(line)
       else:
         assert width == len(line), "wanted %s cells" % width
@@ -82,6 +82,8 @@ class Table:
   
   def header(i,line):
     for col,cell in enumerate(line):
+      i.col2cell[col] = cell
+      i.cell2col[cell] = col
       if cell[0] != Table.ignore:
         for key,(char,what) in Table.cols.items():
           if cell[0] == char:
@@ -122,10 +124,14 @@ def median(lst):
   m   = l // 2
   return lst[m] if l % 2 else (lst[m] + lst[m+1])/2
 
-def percentiles(lst,p=4):
+def percentiles(lst):
   all = sorted(lst)
-  n   = len(lst)//p
-  return all[::n] 
+  m   = len(lst)
+  lo  = int(m*0.05)
+  hi  = int(m*0.95)
+  most= all[lo:hi]
+  q   = len(most)//4
+  return [most[0], most[q], most[q*2], most[q*3], most[-1]]
 
 def sa(wantgot):
   sampled = median( [want for want,_ in wantgot] )
@@ -147,6 +153,11 @@ def knn(row,t,k=5, goal=-1, combine = median):
   got   = combine(gots)
   return got
 
+def triangle(l):
+  n     = len(l)
+  denom = sum([(n-i) for i,x in enumerate(l)])
+  return sum((n-i)*x for i,x in enumerate(l))/denom
+    
 _  = None;  Coc2tunings = [[
 #              vlow  low   nom   high  vhigh  xhigh   
 # scale factors:
@@ -178,40 +189,41 @@ def COCOMO2(project,  a = 2.94, b = 0.91,
                       tunes= Coc2tunings):
   sfs,ems,kloc   = 0, 5 ,22        
   scaleFactors, effortMultipliers = 5, 17
-  
   for i in range(scaleFactors):
     sfs += tunes[i][project[i]]
-    
   for i in range(effortMultipliers):
     j = i + scaleFactors
     ems *= tunes[j][project[j]] 
-    
   return a * ems * project[kloc] ** (b + 0.01*sfs)
 
+class Re():
+  def __init__(i,txt):
+    i.txt, i.mres, i.wantgot = txt, [], []
+  def __call__(i,want,got):
+    i.mres += [ (want - got) / want ]
+    i.wantgot += [ (want,got) ]
+  def report(i,**d):
+    p = lambda x:  int(x*100)
+    i.mres = sorted(i.mres)
+    print(map(p, percentiles( i.mres )),i.txt,d)
+               
 if __name__ == '__main__':
   f = "data/nasa93_2000.csv"
   g = -1
-  if len(sys.argv) > 1:
-    f = sys.argv[1]
-  if len(sys.argv) > 2:
-    g = int(sys.argv[2])
+  if len(sys.argv) > 1: f = sys.argv[1]
+  if len(sys.argv) > 2: g = int(sys.argv[2])
   t = Table(file=f)
-  p = lambda x:  int(x*100)
-  for k in [1,3,5,7]:
-    mres1 = []
-    mres2= []
-    wantgot1 = []
-    wantgot2 = []
+  for k in [1,2,3,4,5]:
+    print("#")
+    r1 = Re("k=%snn" % k)
+    r2 = Re("baseline")
+    r3 = Re("triangle")
     for row in t.rows:
-      want     = row[g]
-      got1      = knn(row, t, goal=g,k=k)
-      got2      = median(row[g] for row in t.rows)
-      mres1 += [abs(want-got1)/want]
-      wantgot1 += [(want,got1)]
-      mres2 += [abs(want-got2)/want]
-      wantgot2 += [(want,got2)]
-    mres1 = sorted(mres1)
-    mres2 = sorted(mres2)
-    print(k, map(p,percentiles(mres1)))
-    #print(k, map(p,percentiles(mres2)))
-    #print(k, sa(wantgot), median(mres))
+      want = row[g]
+      r1(want, knn(row, t, goal=g, k=k))
+      r2(want, median(row[g] for row in t.rows))
+      r3(want, knn(row, t, goal=g, k=k, combine= triangle))
+    r1.report()
+    r2.report()
+    r3.report()
+    
