@@ -196,10 +196,12 @@ def COCOMO2(project,  a = 2.94, b = 0.91,
     ems *= tunes[j][project[j]] 
   return a * ems * project[kloc] ** (b + 0.01*sfs)
 
-class Re():
-  def __init__(i,txt):
+class Rx():
+  def __init__(i,txt, get):
     i.txt, i.mres, i.wantgot = txt, [], []
-  def __call__(i,want,got):
+    i.get = get
+  def __call__(i,row,want):
+    got = i.get(row)
     i.mres += [ (want - got) / want ]
     i.wantgot += [ (want,got) ]
   def report(i,**d):
@@ -215,15 +217,11 @@ if __name__ == '__main__':
   t = Table(file=f)
   for k in [1,2,3,4,5]:
     print("#")
-    r1 = Re("k=%snn" % k)
-    r2 = Re("baseline")
-    r3 = Re("triangle")
+    rs = [Rx("k=%snn" % k, lambda row: knn(row, t, goal=g, k=k)))
+         ,Rx("triangle",   lambda row: knn(row, t, goal=g, k=k, combine= triangle))
+         ,Rx("baseline",   lambda row: median(row[g] for row in t.rows))       
+         ]
     for row in t.rows:
-      want = row[g]
-      r1(want, knn(row, t, goal=g, k=k))
-      r2(want, median(row[g] for row in t.rows))
-      r3(want, knn(row, t, goal=g, k=k, combine= triangle))
-    r1.report()
-    r2.report()
-    r3.report()
-    
+      for r in rs:
+        r(row,row[g])
+    for r in rs: r.report()
