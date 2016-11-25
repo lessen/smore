@@ -1,6 +1,12 @@
 from __future__ import division,print_function
-import sys,string,re, math
+import sys,string,re, math,random
+from collections import defaultdict
 sys.dont_write_bytecode=True
+
+def say(x): sys.stdout.write(str(x))
+
+r= random.random
+any=random.choice
 
 class Num:
   def __init__(i,txt,col):
@@ -18,8 +24,7 @@ class Num:
     i.hi = max(x, i.hi)
     return x
   def sd(i):
-    return 0 if i.n <= 2 else (i.m2/(i.n-1))**0.5
-  
+    return 0 if i.n <= 2 else (i.m2/(i.n-1))**0.5  
   def norm(i,x):
     x = (x - i.lo) / (i.hi - i.lo + 1e-32)
     if x > 1: return 1
@@ -80,12 +85,13 @@ class Table:
     for key in Table.cols.keys():
       i.cols[key] = []
     if file:
-      return i.create(i.lines(file))
+      i.create(i.lines(file))
 
-  def clone(i):
-    t = Table()
-    t.create([i.names[:]] + [row[:] for row in i.rows])
-    return t
+  def clone(i,rows=None):
+    rows1 = rows if rows else i.rows
+    rows2 = [row[:] for row in rows1] # ensure deepcopy
+    names = i.names[:]
+    return Table().create( [names] + rows2 )
     
   def create(i,src):
     width = None
@@ -97,6 +103,7 @@ class Table:
       else:
         assert width == len(line), "wanted %s cells" % width
         i.rows += [ i.compile(line) ]
+    return i
 
   def compile(i,line):
     for x in i.all:
@@ -169,6 +176,7 @@ def neighbors(row1, t):
                [(t.dist(row1,row2), row2)
                 for row2 in t.rows ])
 
+
 def threeVal(t):
   def swap(x):
     if x in ['vl','l']     : return 'l'
@@ -178,27 +186,23 @@ def threeVal(t):
     for sym in t.cols["syms"]:
       row[sym.col] = swap(row[sym.col])
   return t
-    
-def knn(row,t,k=5, goal=-1, combine = median,prep = lambda z:z,ent=None,sd=None):
-  t      = prep(t)
-  t      = prune(ent,sd)
-  second = lambda z:z[1]
-  dists = map(second, neighbors(row,t))
-  nears = dists[1:k+1]
-  gots  = [x[goal] for x in nears]
-  got   = combine(gots)
+
+def second(x): return x[1]
+
+def knn(row,t,k=5, goal=-1, combine = median):
+  dists  = map(second, neighbors(row,t))
+  nears  = dists[1:k+1]
+  gots   = [x[goal] for x in nears]
+  got    = combine(gots)
   return got
 
-def knnC(row,t,k=5, goal=-1, combine = None,prep = lambda z:z,weight=1,ent=None,sd=None):
-  t      = prep(t)
-  t      = prune(t,ent,sd)
-  second = lambda z:z[1]
+def knnC(row,t,k=5, goal=-1, combine = None,weight=1):
   dists  = neighbors(row,t)
   nears  = dists[1:k+1]
-  gots   = [(d,x[goal]) for d,x in nears]
+  tiny   = 1e-32
+  gots   = [(d+tiny, x[goal]) for d,x in nears]
   denom,nom = 0,0
   for d,got in gots:
-    d     += 1e-32
     w      = (1/d)**weight
     nom   += w*got
     denom += w
@@ -209,21 +213,42 @@ def triangle(l):
   denom = sum([(n-i) for i,x in enumerate(l)])
   return sum((n-i)*x for i,x in enumerate(l))/denom
 
-def prune(t,ent=None, sd=None):
+def rnn(t,r=10):
+  ds = defaultdict(list)
+  for i,row1 in enumerate(t.rows):
+    for j,row2 in enumerate(t.rows):
+      if i > j:
+        d      = t.dist(row1,row2) # standard distance stuff
+        ds[i] += [(d,j)]
+        ds[j] += [(d,i)]
+  rnns = defaultdict(int)
+  for vals in ds.values():
+    vals     = sorted(vals)    # all distances, sorted
+    x        = second(vals[0]) # id of closest row 
+    rnns[x] += 1 # how often is "x" someone else's nearest neighbor?
+  #print(rnns)
+  ranked = sorted([(cnt+r(),rowid) for rowid,cnt in rnns.items()]) # rank the rnn scores
+  #print(ranked)
+  ranked = ranked[ -1*r: ]  # grap the top 'r'
+  centroids = [t.rows[i[1]] for i in ranked]  
+  return t.clone(centroids)
+
+def selectColumns(t,ent=None, sd=None):
   if ent:
-    prune1(t,"syms",ent,lambda z: z.entropy)
-  if sd:
-    prune1(t,"nums",sd,lambda z: z.sd())
-  return t
+    return selectColumns1(t,"syms",ent,lambda z: z.entropy)
+  elif sd:
+    return selectColumns1(t,"nums",sd, lambda z: z.sd())
+  else:
+    return t
     
-def prune1(t,what,where,how):
-  all = t.cols[what]
+def selectColumns1(t,what,where,how):
+  all = t.cols[what] # 'what' columns to explore
   for col in all:
-    all.use = False
-  good = sorted(all,key=how)
-  best = syms[where:] if where < 0 else syms[:where]
+    col.use = False
+  ranked = sorted(all, key=how) # 'how' we should rank the columns
+  best   = ranked[where:] if where < 0 else ranked[:where] # select from 'where'
   for col in best:
-    all.use = True
+    col.use = True
   return t
     
 _  = None;  Coc2tunings = [[
@@ -265,11 +290,11 @@ def COCOMO2(project,  a = 2.94, b = 0.91,
   return a * ems * project[kloc] ** (b + 0.01*sfs)
 
 class Rx():
-  def __init__(i,txt, get):
-    i.txt, i.mres, i.wantgot = txt, [], []
+  def __init__(i,txt, t, get):
+    i.txt, i.mres, i.wantgot, i.table = txt, [], [],t
     i.get = get
   def __call__(i,row,want):
-    got = i.get(row)
+    got = i.get(row,i.table)
     i.mres += [ (want - got) / want ]
     i.wantgot += [ (want,got) ]
   def report(i,**d):
@@ -277,23 +302,36 @@ class Rx():
     i.mres = sorted(i.mres)
     print(map(p, percentiles( i.mres )),i.txt,d)
 
+def myTable(t,prep=lambda z:z,ent=None,sd=None,r=None):
+  t= t.clone()
+  t= prep(t)
+  t= selectColumns(t, sd=sd, ent=ent)
+  if r:
+    t = rnn(t,r=r)
+  return t
+
+# train generate should be outside of the call
+
 def loo(f,g):
-  t = Table(file=f)
+  t0 = Table(file=f) # read from disk
   for k in [1,2,3,4,5]:
     print("#")
-    rs = [Rx("k=%snn"      % k,    lambda row: knn(row,  t.clone(), goal=g, k=k))
-          #,Rx("k=%snn.3val" % k,   lambda row: knn(row,  t.clone(), goal=g, k=k, prep=threeVal))
-          #Rx("k=%snn.w" % k, lambda row: knnC(row,  t.clone(), goal=g, k=k))
-          #,Rx("k=%snn.w2.3val" % k, lambda row: knn(row,  t.clone(), goal=g, k=k,prep=threeVal,ent=-5))
-          #,Rx("k=%snnC.w2.3val" % k, lambda row: knnC(row,  t.clone(), goal=g, k=k,prep=threeVal,ent=-5))
-         #,Rx("triangle",           lambda row: knn(row,  t.clone(), goal=g, k=k, combine= triangle))
-         #,Rx("baseline",           lambda row: median(row[g] for row in t.clone().rows))       
-         ]
-    for row in t.rows:
+    rs =  [#Rx("k=%snn"      % k,      t0.clone(),lambda row,t: knn( row, t, goal=g, k=k))
+            Rx("k=%snn.3val" % k,      myTable(t0,  prep=threeVal),  lambda row,t: knn( row,t , goal=g, k=k))
+           #Rx("k=%snn.3val.r10" % k, myTable(t0,  prep=threeVal,r=10),  lambda row,t: knn( row,t , goal=g, k=k))
+      ,Rx("k=%snn.w" % k,        myTable(t0),   lambda row,t: knnC(row,t,  goal=g, k=k))
+           #,Rx("k=%snn.w2.3val" % k,  myTable(t0,  prep=threeVal,ent=-5), lambda row,t: knn( row,t,   goal=g,k=k))
+           #,Rx("k=%snnC.w2.3val" % k, myTable(t0,  prep=threeVal,ent=-5), lambda row,t: knnC(row,t,  goal=g, k=k))
+           #,Rx("triangle",            myTable(t0),  lambda row,t: knn( row,t,   goal=g, k=k, combine= triangle))
+           #,Rx("baseline",            myTable(t0),  lambda row,t: median(row[g] for row in t.rows))       
+        ]
+    for row in t0.rows:
       for r in rs:
         r(row,row[g])
     for r in rs: r.report()
-  
+
+# rows need an id
+# 
 
 if __name__ == '__main__':
   f = "data/nasa93_2000.csv"
